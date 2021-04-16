@@ -32,14 +32,14 @@
 
 <body>
     <div style="margin: 20px">
-        <h1 style="font-size: 18px;">Example 5: Speech to Text Transcribe Streaming Recognize</h1>
+        <h1 style="font-size: 18px;">Medical Transcripts</h1>
 
         <div>
             <button id="start-recording" disabled>Start Streaming</button>
             <button id="stop-recording" disabled>Stop Streaming</button>
         </div>
 
-        <h2 style="font-size: 14px;">Results: data.results[0].alternatives[0].transcript</h2>
+        <h2 style="font-size: 14px;">Transcript of the consultation:</h2>
         <textarea id="results" style="width: 800px; height: 300px;"></textarea>
     </div>
 
@@ -56,7 +56,7 @@
     const resultpreview = document.getElementById('results');
     socketio.on('results', function (data) {
         if(data && data.results[0] && data.results[0].alternatives[0]){
-            resultpreview.innerHTML += " " + data.results[0].alternatives[0].transcript;
+            resultpreview.innerHTML += " \n" + data.results[0].alternatives[0].transcript;
         }
     });
 

@@ -23,7 +23,7 @@ Here are the steps, to run these examples locally:
 
 3. Start the simpleserver node app:
 
-   `npm --EXAMPLE=1 --PORT=8080 --PROJECT_ID=[your-gcp-project-id] run start`
+   `npm --EXAMPLE=5 --PORT=8080 --PROJECT_ID=[your-gcp-project-id] run start`
 
 To switch to the various examples, edit the EXAMPLE variable to one of these:
 
