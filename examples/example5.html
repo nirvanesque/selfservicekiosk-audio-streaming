@@ -1,134 +1,200 @@
-<!DOCTYPE html>
-<!--
- Copyright 2020 Google LLC
+/**
+ * Simple Server for responding to client requests for Medical transcription
+ ** =============================================================================
+ */
 
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
+// ------------- SETTINGS
+const projectId = 'flowing-gasket-309204'; // process.env.npm_config_PROJECT_ID;
+const location = 'global';
+const example = 5; // process.env.npm_config_EXAMPLE;
+const port = ( process.env.npm_config_PORT || 3000 );
 
-      http://www.apache.org/licenses/LICENSE-2.0
+const languageCode = 'bn-IN';
+let encoding = 'LINEAR16';
+if(example > 3){
+  // NOTE: ENCODING NAMING FOR SPEECH API IS DIFFERENT
+  encoding = 'LINEAR16';
+}
 
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
--->
+if(example == 7){
+  // NOTE: ENCODING NAMING FOR SPEECH API IS DIFFERENT
+  encoding = 'linear16';
+}
 
-<html>
-<head>
-    <meta charset="utf-8" />
-    <title>RecordRTC over Socket.io</title>
+// const singleUtterance = true;
+const interimResults = false;
+const sampleRateHertz = 16000;
 
-    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-   
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+console.log('Main. Google Project ID: ', projectId);
 
-    <script src="https://www.WebRTC-Experiment.com/RecordRTC.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io-stream/0.9.1/socket.io-stream.js"></script>
-</head>
+// ----------------------
 
-<body>
-    <div style="margin: 20px">
-        <h1 style="font-size: 18px;">Medical Transcripts</h1>
 
-        <div>
-            <button id="start-recording" disabled>Start Streaming</button>
-            <button id="stop-recording" disabled>Stop Streaming</button>
-        </div>
+// load all the libraries for the server
+const socketIo = require('socket.io');
+const path = require('path');
+const fs = require('fs');
+const http = require('http');
+const cors = require('cors');
+const express = require('express');
+const ss = require('socket.io-stream');
 
-        <h2 style="font-size: 14px;">Transcript of the consultation:</h2>
-        <textarea id="results" style="width: 800px; height: 300px;"></textarea>
-    </div>
+// set some server variables
+const app = express();
+var server;
+// var request, sessionId, sessionClient, sessionPath, request;
+var speechClient, requestSTT, mediaTranslationClient, requestMedia; // omitted non-used: var ttsClient, requestTTS;
 
-    <script type="text/javascript">
+// STT demo
+const speech = require('@google-cloud/speech');
 
-    const socketio = io();
-    const socket = socketio.on('connect', function() {
-        // reset the recorder
-        startRecording.disabled = false;
+// TTS demo
+// const textToSpeech = require('@google-cloud/text-to-speech');
+
+// Media Translation Demo
+const mediatranslation = require('@google-cloud/media-translation');
+
+// Text Translation Demo
+const {Translate} = require('@google-cloud/translate').v2;
+const translate = new Translate();
+console.log('Main. Translation client details: ', Translate);
+
+/**
+ * Setup Express Server with CORS and SocketIO
+ */
+function setupServer() {
+    // setup Express
+    app.use(cors());
+    app.get('/', function(req, res) {
+      res.sendFile(path.join(__dirname + '/index.html'));
+    });
+    server = http.createServer(app);
+    io = socketIo(server);
+    server.listen(port, () => {
+        console.log('setupServer. Running server on port %s', port);
     });
 
-    // when the server found results and send
-    // it back to the client
-    const resultpreview = document.getElementById('results');
-    socketio.on('results', function (data) {
-        if(data && data.results[0] && data.results[0].alternatives[0]){
-            resultpreview.innerHTML += " \n" + data.results[0].alternatives[0].transcript;
-        }
-    });
+    // Listener, once the client connect to the server socket
+    io.on('connect', (client) => {
+        console.log(`setupServer. Client connected [id=${client.id}]`);
+        client.emit('server_setup', `Server connected [id=${client.id}]`);
 
-    const startRecording = document.getElementById('start-recording');
-    const stopRecording = document.getElementById('stop-recording');
-    let recordAudio;
-
-    // on start button handler
-    startRecording.onclick = function() {
-        // recording started
-        startRecording.disabled = true;
-
-        // make use of HTML 5/WebRTC, JavaScript getUserMedia()
-        // to capture the browser microphone stream
-        navigator.getUserMedia({
-            audio: true
-        }, function(stream) {
-                recordAudio = RecordRTC(stream, {
-                type: 'audio',
-                mimeType: 'audio/webm',
-                sampleRate: 44100, // this sampleRate should be the same in your server code
-
-                // MediaStreamRecorder, StereoAudioRecorder, WebAssemblyRecorder
-                // CanvasRecorder, GifRecorder, WhammyRecorder
-                recorderType: StereoAudioRecorder,
-
-                // Dialogflow / STT requires mono audio
-                numberOfAudioChannels: 1,
-
-                // get intervals based blobs
-                // value in milliseconds
-                // as you might not want to make detect calls every seconds
-                timeSlice: 4000,
-
-                // only for audio track
-                // audioBitsPerSecond: 128000,
-
-                // used by StereoAudioRecorder
-                // the range 22050 to 96000.
-                // let us force 16khz recording:
-                desiredSampRate: 16000,
-
-                // as soon as the stream is available
-                ondataavailable: function(blob) {
-                    // making use of socket.io-stream for bi-directional
-                    // streaming, create a stream
-                    var stream = ss.createStream();
-                    // stream directly to server
-                    // it will be temp. stored locally
-                    ss(socket).emit('stream-transcribe', stream, {
-                        name: 'stream.wav', 
-                        size: blob.size
-                    });
-                    // pipe the audio blob to the read stream
-                    ss.createBlobReadStream(blob).pipe(stream);
-                }
+        // when the client sends 'stream-transcribe' events
+        // when using audio streaming
+        var rawResults, translatedResults;
+        ss(client).on('stream-transcribe', function(stream, data) {
+            console.log(`Opening stream-transcribe`);
+            // get the name of the stream
+            const filename = path.basename(data.name);
+            // pipe the filename to the stream
+            stream.pipe(fs.createWriteStream(filename));
+            // make a detectIntStream call
+            transcribeAudioStream(stream, function(results){
+                rawResults = results.results[0].alternatives[0].transcript
+                console.log('setupServer: Raw Transcription: ', rawResults);
+                client.emit('results', rawResults);
             });
+            // Send for translation            
+            translatedResults = translateText(rawResults)
+            translatedResults.then(function(translatedResult) {
+              console.log('setupServer: Translated Results: ', translatedResult);
+              client.emit('translated', translatedResult);
+            })
+            .catch (err => {
+              console.log('setupServer. Translation error: ', err);
+            });
+            // Empty rawResults to not resend same text for translation
+            // If no transcription received. 
+            rawResults = "";
+      });
+    });
+}
 
-            recordAudio.startRecording();
-            stopRecording.disabled = false;
-        }, function(error) {
-            console.error(JSON.stringify(error));
-        });
-    };
 
-    // on stop button handler
-    stopRecording.onclick = function() {
-        // recording stopped
-        startRecording.disabled = false;
-        stopRecording.disabled = true;
-    };
-    </script>
+/**
+ * Setup Cloud STT Integration
+ */
+function setupSTT(){
+   // Creates a client
+   speechClient = new speech.SpeechClient();
 
-</body>
-</html>
+    // Create the initial request object
+    // When streaming, this is the first call you will
+    // make, a request without the audio stream
+    // which prepares Dialogflow in receiving audio
+    // with a certain sampleRateHerz, encoding and languageCode
+    // this needs to be in line with the audio settings
+    // that are set in the client
+    console.log('setupSTT. Sampling Rate: ', sampleRateHertz);
+    console.log('setupSTT. Encoding: ', encoding);
+    console.log('setupSTT. Language Code: ', languageCode);
+    requestSTT = {
+      config: {
+        sampleRateHertz: sampleRateHertz,
+        encoding: encoding, // encoding
+        languageCode: languageCode
+      },
+      interimResults: interimResults,
+      //enableSpeakerDiarization: true,
+      //diarizationSpeakerCount: 2,
+      //model: `phone_call`
+    }
+
+}
+
+/*
+ * Setup Media Translation
+ */
+function mediaTranslation(){
+  mediaTranslationClient = new mediatranslation.SpeechTranslationServiceClient();
+
+  // Create the initial request object
+  requestMedia = {
+    audioEncoding: encoding,
+    sourceLanguageCode: languageCode, // was 'en-US',
+    targetLanguageCode: 'en-US'
+  }
+  console.log('mediaTranslation. Request details for Translation: ', requestMedia);
+}
+
+ /*
+  * STT - Transcribe Speech on Audio Stream
+  * @param audio stream
+  * @param cb Callback function to execute with results
+  */
+ async function transcribeAudioStream(audio, cb) { 
+  const recognizeStream = speechClient.streamingRecognize(requestSTT)
+  .on('data', function(data){
+    console.log(data);
+    cb(data);
+  })
+  .on('error', (err) => {
+    console.log('transcribeAudioStream. Error: ', err);
+  })
+  .on('end', () => {
+    console.log('transcribeAudioStream. Audio stream transcribed');
+  });
+
+  audio.pipe(recognizeStream);
+  audio.on('transcribeAudioStream. End of audio transcription', function() {
+      //fileWriter.end();
+  });
+};
+
+ /*
+  * translateText - Translate text from source language to target language
+  * @param text to translate
+  */
+ async function translateText(text) {
+  // Translates the text into the target language. 
+  // "text" can be a string for translating a single piece of text, 
+  // or an array of strings for translating multiple texts.
+  console.log('translateText. Submitted for translation:', text);
+  let [translations] = await translate.translate(text, 'en');
+  translations = Array.isArray(translations) ? translations : [translations];
+  return Promise.resolve(translations)
+};
+
+setupSTT();
+// mediaTranslation();
+setupServer();
