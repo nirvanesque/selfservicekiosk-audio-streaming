@@ -31,6 +31,7 @@ keys/
 *.egg-info/
 .installed.cfg
 *.egg
+.dockerignore
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -130,7 +131,10 @@ build/Release
 
 # Dependency directories
 node_modules
+examples/node_modules
+examples/package-lock.json
 jspm_packages
+package-lock.json
 
 # Optional npm cache directory
 .npm
