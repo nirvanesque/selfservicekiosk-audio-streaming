@@ -4,9 +4,12 @@
   =========================================================================
 -->
 
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Medical Transcripts</title>
     <meta http-equiv="content-type" content="text/html; charset=utf-8" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
@@ -23,10 +26,10 @@
             <button id="start-recording" disabled>Start Recording</button>
             <button id="stop-recording" disabled>Stop Recording</button>
         </div>
-        <p>Raw transcript in Bengali.</p>
-        <textarea id="results" style="width: 800px; height: 300px;"></textarea>
-        <p>Transcript in English.</p>
-        <textarea id="translated" style="width: 800px; height: 300px;"></textarea>
+        <p align="center">Raw transcript in Bengali:</p>
+        <center><textarea id="results" cols="40" rows="15"></textarea></center>
+        <p align="center">Transcript in English.</p>
+        <center><textarea id="translated" cols="40" rows="15"></textarea></center>
     </div>
     <script type="text/javascript">
     const startRecording = document.getElementById('start-recording');
@@ -112,7 +115,6 @@
             translatedpreview.innerHTML += " \n" + data[0];
         }
     });
-
-</script>
+    </script>
 </body>
 </html>
